@@ -1,0 +1,62 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Time::HiRes;
+
+$|=1;
+
+die "Usage: $0 LOGFILE\n" unless (scalar @ARGV == 1);
+
+my $logfile = shift;
+
+open LOGFILE, $logfile or die "$!";
+
+my $last_timestamp = 0;
+
+my @expected_user_bytes;
+
+while ( <LOGFILE> ) {
+  chomp;
+  my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
+
+  my $elapsed_time = $timestamp - $last_timestamp;
+  die unless $elapsed_time >= 0;
+
+  print STDERR "$tag after $elapsed_time us\n";
+
+  if ( $tag eq "SIZE" ) {
+    my ( $width, $height ) = m{SIZE (\d+) (\d+)};
+    print STDERR "New size: $width x $height\n";
+  } else {
+    my ( $len ) = m{\Q$tag\E (\d+)};
+    my $message;
+    read LOGFILE, $message, $len;
+    my $nl;
+    read LOGFILE, $nl, 1;
+    die unless $nl eq "\n";
+
+    if ( $tag eq "USER" ) {
+      push @expected_user_bytes, $message;
+    } elsif ( $tag eq "HOST" ) {
+      # first collect all expected user bytes
+      while ( scalar @expected_user_bytes > 0 ) {
+	my $the_byte;
+	read STDIN, $the_byte, 1;
+	die unless $the_byte eq $expected_user_bytes[ 0 ];
+	shift @expected_user_bytes;
+      }
+
+      # now that prerequisites are met, sleep
+      if ( $last_timestamp != 0 ) {
+	Time::HiRes::usleep( $elapsed_time );
+      }
+
+      # finally, supply host bytes
+      print $message;
+    }
+
+    $last_timestamp = $timestamp;
+  }
+}
+
+print STDERR "Successfully completed.\n";
