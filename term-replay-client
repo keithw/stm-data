@@ -43,11 +43,11 @@ while ( <LOGFILE> ) {
 
   $last_timestamp = $timestamp;
 
-  print "$tag after $elapsed_time us\n";
+  print STDERR "$tag after $elapsed_time us\n";
 
   if ( $tag eq "SIZE" ) {
     my ( $width, $height ) = m{SIZE (\d+) (\d+)};
-    print "New size: $width x $height\n";
+    print STDERR "New size: $width x $height\n";
   } else {
     my ( $len ) = m{\Q$tag\E (\d+)};
     my $message;
