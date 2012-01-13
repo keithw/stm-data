@@ -45,7 +45,7 @@ uint64_t micro_timestamp( void )
 void record_string( int log_fd, char *buf, ssize_t num, const char *tag )
 {
   char message[ 2048 ];
-  int len = snprintf( message, 2048, "%ld %s %ld ", micro_timestamp(), tag, num );
+  int len = snprintf( message, 2048, "%ld %s %ld\n", micro_timestamp(), tag, num );
   assert( len >= 0 );
   assert( len < 2048 );
 

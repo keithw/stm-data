@@ -1,0 +1,63 @@
+#!/usr/bin/perl -w
+
+use strict;
+use IO::Pty::Easy;
+use Time::HiRes;
+
+$|=1;
+
+die "Usage: $0 LOGFILE COMMAND...\n" unless (scalar @ARGV > 1);
+
+my $logfile = shift;
+
+my $command = join " ", @ARGV;
+
+my $pty = new IO::Pty::Easy;
+
+$pty->spawn( $command );
+
+if ( fork == 0 ) {
+  while ( $pty->is_active ) {
+    my $output = $pty->read;
+    print $output;
+  }
+  exit;
+}
+
+sleep 10;
+
+open LOGFILE, $logfile or die "$!";
+
+my $last_timestamp = 0;
+
+while ( <LOGFILE> ) {
+  chomp;
+  my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
+
+  my $elapsed_time = $timestamp - $last_timestamp;
+  die unless $elapsed_time >= 0;
+
+  if ( $last_timestamp != 0 ) {
+    Time::HiRes::usleep( $elapsed_time );
+  }
+
+  $last_timestamp = $timestamp;
+
+  print "$tag after $elapsed_time us\n";
+
+  if ( $tag eq "SIZE" ) {
+    my ( $width, $height ) = m{SIZE (\d+) (\d+)};
+    print "New size: $width x $height\n";
+  } else {
+    my ( $len ) = m{\Q$tag\E (\d+)};
+    my $message;
+    read LOGFILE, $message, $len;
+    my $nl;
+    read LOGFILE, $nl, 1;
+    die unless $nl eq "\n";
+
+    if ( $tag eq "USER" ) {
+      $pty->write( $message );
+    }
+  }
+}
