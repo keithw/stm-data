@@ -4,6 +4,8 @@ use strict;
 use IO::Pty::Easy;
 use Time::HiRes;
 
+use bytes;
+
 $|=1;
 
 die "Usage: $0 LOGFILE COMMAND...\n" unless (scalar @ARGV > 1);
@@ -24,11 +26,13 @@ if ( fork == 0 ) {
   exit;
 }
 
-sleep 10;
+#sleep 10;
 
 open LOGFILE, $logfile or die "$!";
 
 my $last_timestamp = 0;
+
+my $last_tag = "";
 
 while ( <LOGFILE> ) {
   chomp;
@@ -37,11 +41,20 @@ while ( <LOGFILE> ) {
   my $elapsed_time = $timestamp - $last_timestamp;
   die unless $elapsed_time >= 0;
 
+  if ( $last_tag eq "HOST" and $tag eq "USER" ) {
+    if ( $elapsed_time >= 5_000_000 ) {
+      printf STDERR "Shortening user delay to 5s (from %.1f seconds)\n",
+	$elapsed_time / 1_000_000.0;
+      $elapsed_time = 5_000_000;
+    }
+  }
+
   if ( $last_timestamp != 0 ) {
     Time::HiRes::usleep( $elapsed_time );
   }
 
   $last_timestamp = $timestamp;
+  $last_tag = $tag;
 
   print STDERR "$tag after $elapsed_time us\n";
 
@@ -57,7 +70,7 @@ while ( <LOGFILE> ) {
     die unless $nl eq "\n";
 
     if ( $tag eq "USER" ) {
-      $pty->write( $message );
+      $pty->write( $message ) or die;
     }
   }
 }
