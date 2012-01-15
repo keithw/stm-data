@@ -19,6 +19,8 @@ my @expected_user_bytes;
 
 my $last_user_input = 0;
 
+my $last_tag = "";
+
 while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
@@ -51,7 +53,12 @@ while ( <LOGFILE> ) {
 	shift @expected_user_bytes;
       }
 
-      if ( $elapsed_time >= 5_000_000 ) {
+      if ( $last_tag eq "HOST" ) {
+	if ( $elapsed_time >= 100_000 ) {
+	  print STDERR "Shortening subsequent host delay to 0.1s\n";
+	  $elapsed_time = 100_000;
+	}
+      } elsif ( $elapsed_time >= 5_000_000 ) {
 	printf STDERR "Shortening host delay to 5s (from %.1f seconds)\n",
 	  $elapsed_time / 1_000_000.0;
 	$elapsed_time = 5_000_000;
@@ -62,18 +69,19 @@ while ( <LOGFILE> ) {
 	Time::HiRes::usleep( $elapsed_time );
       }
 
+      # finally, supply host bytes
+      print $message;
+
       if ( $timestamp - $last_user_input < 20000 ) {
 	print STDERR "*";
 	print (chr 6);
       } else {
 	print STDERR "_"
       }
-
-      # finally, supply host bytes
-      print $message;
     }
 
     $last_timestamp = $timestamp;
+    $last_tag = $tag;
   }
 }
 

@@ -41,7 +41,18 @@ while ( <LOGFILE> ) {
   my $elapsed_time = $timestamp - $last_timestamp;
   die unless $elapsed_time >= 0;
 
-  if ( $last_tag eq "HOST" and $tag eq "USER" ) {
+  if ( $tag eq "HOST" ) {
+    if ( $last_tag eq "HOST" ) {
+      if ( $elapsed_time >= 150_000 ) {
+	print STDERR "Shortening anticipated subsequent host delay to 0.15s\n";
+	$elapsed_time = 150_000;
+      }
+    } elsif ( $elapsed_time >= 5_500_000 ) {
+      printf STDERR "Shortening anticipated host delay to 5.5s (from %.1f seconds)\n",
+	$elapsed_time / 1_000_000.0;
+      $elapsed_time = 5_500_000;
+    }
+  } elsif ( $tag eq "USER" ) {
     if ( $elapsed_time >= 5_000_000 ) {
       printf STDERR "Shortening user delay to 5s (from %.1f seconds)\n",
 	$elapsed_time / 1_000_000.0;
@@ -71,6 +82,7 @@ while ( <LOGFILE> ) {
 
     if ( $tag eq "USER" ) {
       $pty->write( $message ) or die;
+      print (chr 20);
     }
   }
 }
