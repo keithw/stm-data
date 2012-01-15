@@ -21,6 +21,9 @@ my $last_user_input = 0;
 
 my $last_tag = "";
 
+system("stty raw");
+system("stty -echo");
+
 while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
@@ -32,7 +35,7 @@ while ( <LOGFILE> ) {
 
   if ( $tag eq "SIZE" ) {
     my ( $width, $height ) = m{SIZE (\d+) (\d+)};
-    print STDERR "New size: $width x $height\n";
+#    print STDERR "New size: $width x $height\n";
   } else {
     my ( $len ) = m{\Q$tag\E (\d+)};
     my $message;
@@ -64,10 +67,10 @@ while ( <LOGFILE> ) {
       print $message;
 
       if ( $timestamp - $last_user_input < 20000 ) {
-	print STDERR "*";
+#	print STDERR "*";
 #	print (chr 6);
       } else {
-	print STDERR "_"
+#	print STDERR "_"
       }
     }
 
@@ -76,4 +79,4 @@ while ( <LOGFILE> ) {
   }
 }
 
-print STDERR "Successfully completed.\n";
+#print STDERR "Successfully completed.\n";
