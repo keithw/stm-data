@@ -53,13 +53,7 @@ while ( <LOGFILE> ) {
 	shift @expected_user_bytes;
       }
 
-      if ( $last_tag eq "HOST" ) {
-	$elapsed_time = 0;
-      } elsif ( $elapsed_time >= 5_000_000 ) {
-	printf STDERR "Shortening host delay to 5s (from %.1f seconds)\n",
-	  $elapsed_time / 1_000_000.0;
-	$elapsed_time = 5_000_000;
-      }
+      $elapsed_time = 0;
 
       # now that prerequisites are met, sleep
       if ( $last_timestamp != 0 ) {

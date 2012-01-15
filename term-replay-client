@@ -34,63 +34,30 @@ my $last_timestamp = 0;
 
 my $last_tag = "";
 
-my $host_wait = 0;
-
 my $last_user = 0;
 
 my $last_user_sent = 0;
-my $report_delay = 0;
 
 while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
 
-  my $elapsed_time = $timestamp - $last_timestamp;
-  die unless $elapsed_time >= 0;
-
   if ( $tag eq "HOST" ) {
-    $host_wait = 1;
-
-    $report_delay = 0;
-
-    if ( $last_tag eq "HOST" ) {
-      $elapsed_time = 0;
-    } else {
-      if ( $timestamp - $last_user < 20000 ) {
-	$report_delay = 1;
-      }
-
-      if ( $elapsed_time >= 6_000_000 ) {
-	$elapsed_time = 6_000_000;
+    # drain buffer
+    while ( my $x = $pty->read( 0.25 ) ) {
+      print $x;
+      if ( $last_tag eq "USER" and ($timestamp - $last_user < 20000) ) {
+	my $host_recd = Time::HiRes::time();
+	printf STDERR "Delay: %.10f\n", $host_recd - $last_user_sent;
+	$last_user = 0;
       }
     }
   } elsif ( $tag eq "USER" ) {
-    $elapsed_time = 100_000;
     $last_user = $timestamp;
-  }
-
-  # drain buffer
-  if ( $tag eq "USER" and $host_wait ) {
-    while ( my $x = $pty->read( 0.25 ) ) {
-      print $x;
-      $host_wait = 0;
-      if ( $report_delay ) {
-	my $host_recd = Time::HiRes::time();
-	printf STDERR "Delay: %.10f\n", $host_recd - $last_user_sent;
-	$report_delay = 0;
-	$last_user_sent = 0;
-      }
-    }
-  }
-
-  if ( $last_timestamp != 0 ) {
-    Time::HiRes::usleep( $elapsed_time );
   }
 
   $last_timestamp = $timestamp;
   $last_tag = $tag;
-
-#  print STDERR "$tag after $elapsed_time us\n";
 
   if ( $tag eq "SIZE" ) {
     my ( $width, $height ) = m{SIZE (\d+) (\d+)};
