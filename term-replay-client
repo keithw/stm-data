@@ -42,14 +42,23 @@ while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
 
-  if ( $tag eq "HOST" ) {
+  if ( $tag eq "HOST" and $last_tag eq "USER" ) {
     # drain buffer
-    while ( my $x = $pty->read( 0.25 ) ) {
-      print $x;
-      if ( $last_tag eq "USER" and ($timestamp - $last_user < 20000) ) {
-	my $host_recd = Time::HiRes::time();
-	printf STDERR "Delay: %.10f\n", $host_recd - $last_user_sent;
-	$last_user = 0;
+    my $got = 0;
+    WAIT: while ( 1 ) {
+      my $x = $pty->read( 0.5 );
+      if ( defined $x ) {
+	$got = 1;
+	print $x;
+	if ( $timestamp - $last_user < 20000 ) {
+	  my $host_recd = Time::HiRes::time();
+	  printf STDERR "Delay: %.10f\n", $host_recd - $last_user_sent;
+	  $last_user = 0;
+	}
+      } else {
+	if ( $got ) {
+	  last WAIT;
+	}
       }
     }
   } elsif ( $tag eq "USER" ) {
