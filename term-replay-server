@@ -54,10 +54,7 @@ while ( <LOGFILE> ) {
       }
 
       if ( $last_tag eq "HOST" ) {
-	if ( $elapsed_time >= 100_000 ) {
-	  print STDERR "Shortening subsequent host delay to 0.1s\n";
-	  $elapsed_time = 100_000;
-	}
+	$elapsed_time = 0;
       } elsif ( $elapsed_time >= 5_000_000 ) {
 	printf STDERR "Shortening host delay to 5s (from %.1f seconds)\n",
 	  $elapsed_time / 1_000_000.0;
@@ -74,7 +71,7 @@ while ( <LOGFILE> ) {
 
       if ( $timestamp - $last_user_input < 20000 ) {
 	print STDERR "*";
-	print (chr 6);
+#	print (chr 6);
       } else {
 	print STDERR "_"
       }

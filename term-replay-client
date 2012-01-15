@@ -34,6 +34,8 @@ my $last_timestamp = 0;
 
 my $last_tag = "";
 
+my $host_wait = 0;
+
 while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
@@ -42,22 +44,14 @@ while ( <LOGFILE> ) {
   die unless $elapsed_time >= 0;
 
   if ( $tag eq "HOST" ) {
+    $host_wait = 1;
     if ( $last_tag eq "HOST" ) {
-      if ( $elapsed_time >= 150_000 ) {
-	print STDERR "Shortening anticipated subsequent host delay to 0.15s\n";
-	$elapsed_time = 150_000;
-      }
-    } elsif ( $elapsed_time >= 5_500_000 ) {
-      printf STDERR "Shortening anticipated host delay to 5.5s (from %.1f seconds)\n",
-	$elapsed_time / 1_000_000.0;
-      $elapsed_time = 5_500_000;
+      $elapsed_time = 0;
+    } elsif ( $elapsed_time >= 6_000_000 ) {
+      $elapsed_time = 6_000_000;
     }
   } elsif ( $tag eq "USER" ) {
-    if ( $elapsed_time >= 5_000_000 ) {
-      printf STDERR "Shortening user delay to 5s (from %.1f seconds)\n",
-	$elapsed_time / 1_000_000.0;
-      $elapsed_time = 5_000_000;
-    }
+    $elapsed_time = 100_000;
   }
 
   if ( $last_timestamp != 0 ) {
@@ -81,8 +75,14 @@ while ( <LOGFILE> ) {
     die unless $nl eq "\n";
 
     if ( $tag eq "USER" ) {
+      # drain buffer
+
+      if ( $host_wait ) {
+	while ( defined $pty->read( 0.1 ) ) { print STDERR "Draining...\n"; $host_wait = 0; }
+      }
+
       $pty->write( $message ) or die;
-      print (chr 20);
+#      print (chr 20);
     }
   }
 }
