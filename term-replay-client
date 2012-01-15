@@ -18,13 +18,13 @@ my $pty = new IO::Pty::Easy;
 
 $pty->spawn( $command );
 
-if ( fork == 0 ) {
-  while ( $pty->is_active ) {
-    my $output = $pty->read;
-    print $output;
-  }
-  exit;
-}
+#if ( fork == 0 ) {
+#  while ( $pty->is_active ) {
+#    my $output = $pty->read;
+#    print $output;
+#  }
+#  exit;
+#}
 
 #sleep 10;
 
@@ -36,6 +36,11 @@ my $last_tag = "";
 
 my $host_wait = 0;
 
+my $last_user = 0;
+
+my $last_user_sent = 0;
+my $report_delay = 0;
+
 while ( <LOGFILE> ) {
   chomp;
   my ( $timestamp, $tag ) = m{^(\d+) (\w+)};
@@ -45,13 +50,37 @@ while ( <LOGFILE> ) {
 
   if ( $tag eq "HOST" ) {
     $host_wait = 1;
+
+    $report_delay = 0;
+
     if ( $last_tag eq "HOST" ) {
       $elapsed_time = 0;
-    } elsif ( $elapsed_time >= 6_000_000 ) {
-      $elapsed_time = 6_000_000;
+    } else {
+      if ( $timestamp - $last_user < 20000 ) {
+	$report_delay = 1;
+      }
+
+      if ( $elapsed_time >= 6_000_000 ) {
+	$elapsed_time = 6_000_000;
+      }
     }
   } elsif ( $tag eq "USER" ) {
     $elapsed_time = 100_000;
+    $last_user = $timestamp;
+  }
+
+  # drain buffer
+  if ( $tag eq "USER" and $host_wait ) {
+    while ( my $x = $pty->read( 0.25 ) ) {
+      print $x;
+      $host_wait = 0;
+      if ( $report_delay ) {
+	my $host_recd = Time::HiRes::time();
+	printf STDERR "Delay: %.10f\n", $host_recd - $last_user_sent;
+	$report_delay = 0;
+	$last_user_sent = 0;
+      }
+    }
   }
 
   if ( $last_timestamp != 0 ) {
@@ -61,7 +90,7 @@ while ( <LOGFILE> ) {
   $last_timestamp = $timestamp;
   $last_tag = $tag;
 
-  print STDERR "$tag after $elapsed_time us\n";
+#  print STDERR "$tag after $elapsed_time us\n";
 
   if ( $tag eq "SIZE" ) {
     my ( $width, $height ) = m{SIZE (\d+) (\d+)};
@@ -75,13 +104,8 @@ while ( <LOGFILE> ) {
     die unless $nl eq "\n";
 
     if ( $tag eq "USER" ) {
-      # drain buffer
-
-      if ( $host_wait ) {
-	while ( defined $pty->read( 0.1 ) ) { print STDERR "Draining...\n"; $host_wait = 0; }
-      }
-
       $pty->write( $message ) or die;
+      $last_user_sent = Time::HiRes::time();
 #      print (chr 20);
     }
   }
