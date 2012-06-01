@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+
+use strict;
+use IO::Socket::INET;
+
+my ( @ports ) = @ARGV;
+
+$|=1;
+
+my @sockets;
+for my $port ( @ports ) {
+  my $sock = IO::Socket::INET->new(PeerPort  => $port,
+				   PeerAddr  => 'localhost',
+				   Proto     => 'udp',
+				   LocalAddr => 'localhost' )
+    or die "Can't bind : $@\n";
+  push @sockets, $sock;
+}
+
+$/ = \1;
+
+system("stty raw");
+system("stty -echo");
+
+while (<STDIN>) {
+  for my $socket ( @sockets ) {
+    print $socket $_;
+  }
+}
